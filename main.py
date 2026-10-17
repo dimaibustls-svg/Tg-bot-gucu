@@ -26,26 +26,43 @@ API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
 client = TelegramClient('anon', API_ID, API_HASH)
 
+# --- ВАШИ ТЕКСТЫ ---
 BROADCAST_TEXT = "Хочешь провести хорошо время? Если да, жду в лс 😉"
-FIRST_REPLY = "Привет если ты по поводу того что я писала в чат жду тебя в телеграме"
-SECOND_REPLY = "Я сейчас немного занята если есть вопросы пиши в телеграм"
+
+FIRST_REPLY = (
+    "Привет если ты по поводу того что я написала в чате то работаю через агентство "
+    "и менджера если хочешь узнать подробности или прайс напиши менджеру мой персональный код "
+    "30866 и скажи что хочешь узнать подробности или оформить заказ менджер:@manager_sweetglamour"
+)
+
+SECOND_REPLY = "Извини я щас занята если есть какие-то вопросы пиши обязательно отвечу как освобожусь!!"
 
 user_reply_count = {}
 
+# --- АВТООТВЕТЧИК В ЛИЧКУ (строго по 2 ответа на человека) ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def auto_reply(event):
     sender_id = event.sender_id
     count = user_reply_count.get(sender_id, 0)
 
+    # Если уже отправили 2 сообщения — полностью игнорируем любые новые сообщения от этого юзера
+    if count >= 2:
+        return
+
     if count == 0:
+        # Фиксируем статус сразу, чтобы избежать дублей при флуде
+        user_reply_count[sender_id] = 1
         await asyncio.sleep(60)
         await event.respond(FIRST_REPLY)
-        user_reply_count[sender_id] = 1
+        print(f"[Автоответ 1/2] Отправлен пользователю {sender_id}")
+
     elif count == 1:
+        user_reply_count[sender_id] = 2
         await asyncio.sleep(60)
         await event.respond(SECOND_REPLY)
-        user_reply_count[sender_id] = 2
+        print(f"[Автоответ 2/2] Отправлен пользователю {sender_id}")
 
+# --- РАССЫЛКА ПО ЧАТАМ КОМАНДОЙ .go ---
 @client.on(events.NewMessage(outgoing=True, pattern=r'^\.go$'))
 async def run_broadcast(event):
     await event.edit("🚀 Начинаю рассылку по чатам...")
