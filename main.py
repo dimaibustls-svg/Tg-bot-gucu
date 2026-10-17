@@ -45,12 +45,10 @@ async def auto_reply(event):
     sender_id = event.sender_id
     count = user_reply_count.get(sender_id, 0)
 
-    # Если уже отправили 2 сообщения — полностью игнорируем новые сообщения от этого юзера
     if count >= 2:
         return
 
     if count == 0:
-        # Фиксируем статус сразу, чтобы избежать дублей при флуде
         user_reply_count[sender_id] = 1
         await asyncio.sleep(60)
         await event.respond(FIRST_REPLY)
@@ -73,6 +71,7 @@ async def run_broadcast(event):
             try:
                 await client.send_message(dialog.id, BROADCAST_TEXT)
                 success_count += 1
+                await event.respond(f"✅ Отправлено в чат: {dialog.name}")
                 await asyncio.sleep(45)
             except Exception as e:
                 print(f"Ошибка: {e}")
