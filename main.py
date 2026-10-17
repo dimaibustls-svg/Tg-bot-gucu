@@ -5,7 +5,8 @@ from telethon import TelegramClient, events
 API_ID = 37787095  
 API_HASH = '8e8f268ad7ac622969e7dcf75677b48'
 
-client = TelegramClient('my_session', API_ID, API_HASH)
+client = TelegramClient('anon', API_ID, API_HASH)
+
 
 # --- ВАШИ ТЕКСТЫ ---
 BROADCAST_TEXT = "Хочешь провести хорошо время? Если хочешь узнать больше напиши в личные сообщения))"
