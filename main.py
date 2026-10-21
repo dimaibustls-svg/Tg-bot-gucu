@@ -26,7 +26,7 @@ API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
 client = TelegramClient('anon', API_ID, API_HASH)
 
-# --- ВАШИ ТЕКСТЫ ---
+# --- ТЕКСТЫ ---
 BROADCAST_TEXT = "Хочешь провести хорошо время? Если да, жду в лс 😉"
 
 FIRST_REPLY = (
@@ -38,8 +38,9 @@ FIRST_REPLY = (
 SECOND_REPLY = "Извини я щас занята если есть какие-то вопросы пиши обязательно отвечу как освобожусь!!"
 
 user_reply_count = {}
+is_broadcasting = False  # Флаг статуса рассылки
 
-# --- АВТООТВЕТЧИК В ЛИЧКУ (строго по 2 ответа на человека) ---
+# --- АВТООТВЕТЧИК В ЛИЧКУ (строго 2 ответа) ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def auto_reply(event):
     sender_id = event.sender_id
@@ -60,24 +61,40 @@ async def auto_reply(event):
         await event.respond(SECOND_REPLY)
         print(f"[Автоответ 2/2] Отправлен пользователю {sender_id}")
 
-# --- РАССЫЛКА ПО ЧАТАМ КОМАНДОЙ .go ---
-@client.on(events.NewMessage(outgoing=True, pattern=r'^\.go$'))
-async def run_broadcast(event):
-    await event.edit("🚀 Начинаю рассылку по чатам...")
+# --- ФУНКЦИЯ РАССЫЛКИ ---
+async def start_broadcast_task(event):
+    global is_broadcasting
+    is_broadcasting = True
     success_count = 0
 
-    async for dialog in client.iter_dialogs():
-        if dialog.is_group or dialog.is_channel:
-            try:
-                await client.send_message(dialog.id, BROADCAST_TEXT)
-                success_count += 1
-                await event.respond(f"✅ Отправлено в чат: {dialog.name}")
-                await asyncio.sleep(45)
-            except Exception as e:
-                print(f"Ошибка: {e}")
+    await event.edit("🚀 Начинаю рассылку по чатам...")
 
-    await client.send_message('me', f"✅ Рассылка завершена! Успешно отправлено в {success_count} чатов.")
+    try:
+        async for dialog in client.iter_dialogs():
+            if dialog.is_group or dialog.is_channel:
+                try:
+                    await client.send_message(dialog.id, BROADCAST_TEXT)
+                    success_count += 1
+                    await client.send_message('me', f"✅ Отправлено в чат: {dialog.name}")
+                    await asyncio.sleep(45)
+                except Exception as e:
+                    print(f"Ошибка при отправке в {dialog.name}: {e}")
+                    await asyncio.sleep(5)
+    finally:
+        is_broadcasting = False
+        await client.send_message('me', f"✅ Рассылка завершена! Успешно отправлено в {success_count} чатов.")
 
-print("Бот запущен!")
+# --- КОМАНДА .go ---
+@client.on(events.NewMessage(outgoing=True, pattern=r'^\.go$'))
+async def run_broadcast(event):
+    global is_broadcasting
+    if is_broadcasting:
+        await event.edit("⚠️ Рассылка уже выполняется!")
+        return
+    
+    # Запускаем рассылку как фоновую задачу, чтобы не блокировать бота
+    asyncio.create_task(start_broadcast_task(event))
+
+print("Бот запущен и готов к работе!")
 client.start()
 client.run_until_disconnected()
