@@ -3,6 +3,7 @@ import os
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
+from telethon.errors import RPCError, UserBannedInChannelError, ChatWriteForbiddenError
 
 # --- 1. ВЕБ-СЕРВЕР ДЛЯ RENDER ---
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -38,9 +39,9 @@ FIRST_REPLY = (
 SECOND_REPLY = "Извини я щас занята если есть какие-то вопросы пиши обязательно отвечу как освобожусь!!"
 
 user_reply_count = {}
-is_broadcasting = False  # Флаг статуса рассылки
+is_broadcasting = False
 
-# --- АВТООТВЕТЧИК В ЛИЧКУ (строго 2 ответа) ---
+# --- АВТООТВЕТЧИК В ЛИЧКУ ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def auto_reply(event):
     sender_id = event.sender_id
@@ -61,11 +62,12 @@ async def auto_reply(event):
         await event.respond(SECOND_REPLY)
         print(f"[Автоответ 2/2] Отправлен пользователю {sender_id}")
 
-# --- ФУНКЦИЯ РАССЫЛКИ ---
+# --- ФУНКЦИЯ РАССЫЛКИ (С МГНОВЕННЫМ ПРОПУСКОМ ОШИБОК) ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
     success_count = 0
+    skipped_count = 0
 
     await event.edit("🚀 Начинаю рассылку по чатам...")
 
@@ -76,13 +78,21 @@ async def start_broadcast_task(event):
                     await client.send_message(dialog.id, BROADCAST_TEXT)
                     success_count += 1
                     await client.send_message('me', f"✅ Отправлено в чат: {dialog.name}")
-                    await asyncio.sleep(45)
+                    await asyncio.sleep(45)  # Пауза между УСПЕШНЫМИ отправками
                 except Exception as e:
-                    print(f"Ошибка при отправке в {dialog.name}: {e}")
-                    await asyncio.sleep(5)
+                    # Если бан, нет прав или ошибка — сразу пропускаем без долгой паузы
+                    skipped_count += 1
+                    print(f"[ПРОПУСК] Не удалось отправить в {dialog.name}: {e}")
+                    await asyncio.sleep(2)  # Короткая задержка перед следующим чатом
+                    continue
     finally:
         is_broadcasting = False
-        await client.send_message('me', f"✅ Рассылка завершена! Успешно отправлено в {success_count} чатов.")
+        await client.send_message(
+            'me', 
+            f"✅ Рассылка завершена!\n"
+            f"• Успешно: {success_count}\n"
+            f"• Пропущено (бан/запрет): {skipped_count}"
+        )
 
 # --- КОМАНДА .go ---
 @client.on(events.NewMessage(outgoing=True, pattern=r'^\.go$'))
@@ -92,7 +102,6 @@ async def run_broadcast(event):
         await event.edit("⚠️ Рассылка уже выполняется!")
         return
     
-    # Запускаем рассылку как фоновую задачу, чтобы не блокировать бота
     asyncio.create_task(start_broadcast_task(event))
 
 print("Бот запущен и готов к работе!")
