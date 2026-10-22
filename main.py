@@ -3,7 +3,13 @@ import os
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
-from telethon.errors import RPCError, UserBannedInChannelError, ChatWriteForbiddenError
+from telethon.errors import (
+    FloodWaitError,
+    UserBannedInChannelError,
+    ChatWriteForbiddenError,
+    ChannelPrivateError,
+    RPCError
+)
 
 # --- 1. ВЕБ-СЕРВЕР ДЛЯ RENDER ---
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -41,7 +47,7 @@ SECOND_REPLY = "Извини я щас занята если есть какие
 user_reply_count = {}
 is_broadcasting = False
 
-# --- АВТООТВЕТЧИК В ЛИЧКУ ---
+# --- АВТООТВЕТЧИК В ЛИЧКУ (Работает обособленно в фоне) ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def auto_reply(event):
     sender_id = event.sender_id
@@ -62,7 +68,7 @@ async def auto_reply(event):
         await event.respond(SECOND_REPLY)
         print(f"[Автоответ 2/2] Отправлен пользователю {sender_id}")
 
-# --- ФУНКЦИЯ РАССЫЛКИ (С МГНОВЕННЫМ ПРОПУСКОМ ОШИБОК) ---
+# --- ФУНКЦИЯ РАССЫЛКИ ПО ЧАТАМ ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
@@ -72,26 +78,43 @@ async def start_broadcast_task(event):
     await event.edit("🚀 Начинаю рассылку по чатам...")
 
     try:
-        async for dialog in client.iter_dialogs():
+        dialogs = await client.get_dialogs()
+        for dialog in dialogs:
             if dialog.is_group or dialog.is_channel:
                 try:
                     await client.send_message(dialog.id, BROADCAST_TEXT)
                     success_count += 1
-                    await client.send_message('me', f"✅ Отправлено в чат: {dialog.name}")
-                    await asyncio.sleep(45)  # Пауза между УСПЕШНЫМИ отправками
-                except Exception as e:
-                    # Если бан, нет прав или ошибка — сразу пропускаем без долгой паузы
+                    await client.send_message('me', f"✅ Отправлено в: {dialog.name}")
+                    await asyncio.sleep(45) # Задержка при успешной отправке
+
+                except FloodWaitError as e:
+                    # Если Telegram просит подождать (лимит частоты)
+                    print(f"[FloodWait] Пропуск {dialog.name}, нужно ждать {e.seconds} сек.")
                     skipped_count += 1
-                    print(f"[ПРОПУСК] Не удалось отправить в {dialog.name}: {e}")
-                    await asyncio.sleep(2)  # Короткая задержка перед следующим чатом
+                    await asyncio.sleep(2)
                     continue
+
+                except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
+                    # Если бан, мут или нет прав писать
+                    print(f"[Бан/Запрет] Пропущен чат: {dialog.name}")
+                    skipped_count += 1
+                    await asyncio.sleep(1)
+                    continue
+
+                except Exception as e:
+                    # Любая другая ошибка
+                    print(f"[Ошибка] Чат {dialog.name}: {e}")
+                    skipped_count += 1
+                    await asyncio.sleep(1)
+                    continue
+
     finally:
         is_broadcasting = False
         await client.send_message(
-            'me', 
+            'me',
             f"✅ Рассылка завершена!\n"
             f"• Успешно: {success_count}\n"
-            f"• Пропущено (бан/запрет): {skipped_count}"
+            f"• Пропущено (баны/ошибки): {skipped_count}"
         )
 
 # --- КОМАНДА .go ---
@@ -104,6 +127,6 @@ async def run_broadcast(event):
     
     asyncio.create_task(start_broadcast_task(event))
 
-print("Бот запущен и готов к работе!")
+print("Бот запущен!")
 client.start()
 client.run_until_disconnected()
