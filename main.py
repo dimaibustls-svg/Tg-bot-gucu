@@ -7,8 +7,7 @@ from telethon.errors import (
     FloodWaitError,
     UserBannedInChannelError,
     ChatWriteForbiddenError,
-    ChannelPrivateError,
-    RPCError
+    ChannelPrivateError
 )
 
 # --- 1. ВЕБ-СЕРВЕР ДЛЯ RENDER ---
@@ -47,7 +46,7 @@ SECOND_REPLY = "Извини я щас занята если есть какие
 user_reply_count = {}
 is_broadcasting = False
 
-# --- АВТООТВЕТЧИК В ЛИЧКУ (Работает обособленно в фоне) ---
+# --- АВТООТВЕТЧИК В ЛИЧКУ ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def auto_reply(event):
     sender_id = event.sender_id
@@ -84,26 +83,21 @@ async def start_broadcast_task(event):
                 try:
                     await client.send_message(dialog.id, BROADCAST_TEXT)
                     success_count += 1
-                    await client.send_message('me', f"✅ Отправлено в: {dialog.name}")
-                    await asyncio.sleep(45) # Задержка при успешной отправке
+                    await asyncio.sleep(45)  # Пауза 45 секунд между отправками
 
                 except FloodWaitError as e:
-                    # Если Telegram просит подождать (лимит частоты)
-                    print(f"[FloodWait] Пропуск {dialog.name}, нужно ждать {e.seconds} сек.")
+                    print(f"[FloodWait] Нужно ждать {e.seconds} сек.")
                     skipped_count += 1
                     await asyncio.sleep(2)
                     continue
 
                 except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
-                    # Если бан, мут или нет прав писать
-                    print(f"[Бан/Запрет] Пропущен чат: {dialog.name}")
                     skipped_count += 1
                     await asyncio.sleep(1)
                     continue
 
                 except Exception as e:
-                    # Любая другая ошибка
-                    print(f"[Ошибка] Чат {dialog.name}: {e}")
+                    print(f"[Ошибка] {e}")
                     skipped_count += 1
                     await asyncio.sleep(1)
                     continue
@@ -114,7 +108,7 @@ async def start_broadcast_task(event):
             'me',
             f"✅ Рассылка завершена!\n"
             f"• Успешно: {success_count}\n"
-            f"• Пропущено (баны/ошибки): {skipped_count}"
+            f"• Пропущено: {skipped_count}"
         )
 
 # --- КОМАНДА .go ---
