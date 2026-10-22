@@ -83,7 +83,7 @@ async def start_broadcast_task(event):
                 try:
                     await client.send_message(dialog.id, BROADCAST_TEXT)
                     success_count += 1
-                    await asyncio.sleep(45)  # Пауза 45 секунд между отправками
+                    await asyncio.sleep(15)  # <--- СДЕЛАНО 15 СЕКУНД ПАУЗА
 
                 except FloodWaitError as e:
                     print(f"[FloodWait] Нужно ждать {e.seconds} сек.")
