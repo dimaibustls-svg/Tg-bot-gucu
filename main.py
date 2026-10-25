@@ -28,20 +28,14 @@ def run_web_server():
 Thread(target=run_web_server, daemon=True).start()
 
 
-# --- 2. НАСТРОЙКА БОТА ---
+# --- 2. НАСТРОЙКА БОТА С ЖЕСТКО ЗАПИСАННОЙ СЕССИЕЙ ---
 API_ID = 37787095
 API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
-# Проверяем, что приходит из переменных Render
-SESSION_STRING = os.environ.get('SESSION_STRING', '').strip()
-print(f"[DEBUG] Длина полученной SESSION_STRING: {len(SESSION_STRING)}")
+# Готовая строка сессии с вашего телефона
+SESSION_STRING = '1BVtsOHQBu2AwdLPqqAZ2NM9EXv-BKSvLtg-i2lmT19IYMIPZBhIsGnzgej1n0nMXjCJUPuJDUQcxXQj17AdzFucjAitS06jkoGzQ0PXG3ZSfv011vPfAmmlp8QaDSdfFaDtatgphX5fGKAGEz5B2q7DxicvD5_AcWaU2Eml1NvIBOl-dBE0WSHJ0LpEUta9ibTqlUJpmXR6qTrSOModoYAwayqptGchz0zI5aTqOwSz-CY1F-tYW7u_JgWyhKksbq7_DypmEeIHD2wZaQjPLUHxCae-TixlBYVqENyxNys_wb2QuJ3P540JRMXBRvEE_7M5FLliWyMyywxEZT5fCOZzPw4c='
 
-if SESSION_STRING:
-    print("[Клиент] Успешно подключаемся через StringSession...")
-    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-else:
-    print("[ОШИБКА] Переменная SESSION_STRING на Render пустая или не задана!")
-    raise ValueError("Добавьте переменную SESSION_STRING в настройках Environment на Render!")
+client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 
 # --- ТЕКСТЫ ---
