@@ -3,6 +3,7 @@ import os
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from telethon.errors import (
     FloodWaitError,
     UserBannedInChannelError,
@@ -31,8 +32,15 @@ Thread(target=run_web_server, daemon=True).start()
 API_ID = 37787095
 API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
-# Используем стандартную файловую сессию 'session', чтобы избежать ошибок декодирования
-client = TelegramClient('session', API_ID, API_HASH)
+# Жестко загружаем строку сессии из переменных Render без интерактивных запросов
+SESSION_STRING = os.environ.get('SESSION_STRING', '').strip()
+
+if SESSION_STRING:
+    print("[Клиент] Сессия успешно загружена из переменной окружения!")
+    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+else:
+    print("[ОШИБКА] Переменная SESSION_STRING не найдена!")
+    client = TelegramClient('session', API_ID, API_HASH)
 
 
 # --- ТЕКСТЫ ---
