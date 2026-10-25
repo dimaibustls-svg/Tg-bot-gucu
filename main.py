@@ -32,15 +32,16 @@ Thread(target=run_web_server, daemon=True).start()
 API_ID = 37787095
 API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
-# Жестко загружаем строку сессии из переменных Render без интерактивных запросов
+# Проверяем, что приходит из переменных Render
 SESSION_STRING = os.environ.get('SESSION_STRING', '').strip()
+print(f"[DEBUG] Длина полученной SESSION_STRING: {len(SESSION_STRING)}")
 
 if SESSION_STRING:
-    print("[Клиент] Сессия успешно загружена из переменной окружения!")
+    print("[Клиент] Успешно подключаемся через StringSession...")
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 else:
-    print("[ОШИБКА] Переменная SESSION_STRING не найдена!")
-    client = TelegramClient('session', API_ID, API_HASH)
+    print("[ОШИБКА] Переменная SESSION_STRING на Render пустая или не задана!")
+    raise ValueError("Добавьте переменную SESSION_STRING в настройках Environment на Render!")
 
 
 # --- ТЕКСТЫ ---
