@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 from aiohttp import web
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -71,7 +72,7 @@ async def auto_reply(event):
         print(f"[Автоответ 2/2 в ЛС] Отправлен")
 
 
-# --- АГРЕССИВНАЯ ФУНКЦИЯ РАССЫЛКИ ---
+# --- БЕЗОПАСНАЯ РАССЫЛКА С РАНДОМНОЙ ПАУЗОЙ ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
@@ -81,17 +82,21 @@ async def start_broadcast_task(event):
     try:
         dialogs = await client.get_dialogs()
         for dialog in dialogs:
-            # Проверяем абсолютно все чаты, группы и даже каналы, где бот состоит
             if dialog.is_group or dialog.is_channel or dialog.is_chat:
                 try:
                     await client.send_message(dialog.id, BROADCAST_TEXT)
                     success_count += 1
                     print(f"[Успех] Отправлено в чат: {dialog.title}")
-                    await asyncio.sleep(1.5) # Чуть пауза для безопасности
+                    
+                    # Рандомная пауза от 5 до 10 секунд между сообщениями, чтобы не ловить спам-блок
+                    delay = random.randint(5, 10)
+                    await asyncio.sleep(delay)
+                    
                 except FloodWaitError as e:
-                    print(f"[FloodWait] Пауза {e.seconds} сек.")
+                    print(f"[FloodWait] Telegram просит подождать {e.seconds} сек.")
                     skipped_count += 1
-                    await asyncio.sleep(e.seconds + 2)
+                    # Если словили лимит, делаем паузу плюс небольшой запас
+                    await asyncio.sleep(e.seconds + 5)
                     continue
                 except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
                     skipped_count += 1
@@ -106,9 +111,9 @@ async def start_broadcast_task(event):
         is_broadcasting = False
         await client.send_message(
             'me',
-            f"🚀 **Рассылка завершена!**\n\n"
+            f"🛡 **Безопасная рассылка завершена!**\n\n"
             f"• Успешно отправлено: {success_count}\n"
-            f"• Пропущено (нет прав / забанен): {skipped_count}"
+            f"• Пропущено / Заблокировано: {skipped_count}"
         )
 
 
@@ -120,7 +125,7 @@ async def run_broadcast(event):
         await event.reply("⚠️ Рассылка уже выполняется!")
         return
     
-    await event.reply("🚀 Запускаю мощную рассылку по всем чатам...")
+    await event.reply("🛡 Запускаю безопасную рассылку с защитой от спам-блока...")
     asyncio.create_task(start_broadcast_task(event))
 
 
