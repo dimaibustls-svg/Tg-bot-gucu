@@ -32,7 +32,6 @@ Thread(target=run_web_server, daemon=True).start()
 API_ID = 37787095
 API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
-# Ваша новая рабочая строка сессии
 SESSION_STRING = '1BVtsOHQBuxsu6PoXmwGcF4twEvSvpRLmCQATzgWP5jfYw-naAFtOclSxgsfM3bLQ2-ahVuPDMYUZs1F3M9ABQJ0FJMNVsM7DgQgWsQNa6583zTE9Y7qBsXWjvQs7gxsuYnZOgsVZLAHkljKHRapNu6noDSwYeZkqL0KW68wAoH569nIHDCdllwF_exWbo5TLxtSD3y6UKFZOD-i3HrsCqc_naUUZzeeSUKlI5Bs-DOPE10HFxHzKzctY50uNiU3yr-n01blB9Ir9bvIX8WHRX3W_rL1qdm_DolEJ_k0BTm8N5BBC3iAR8ItM-O1zKngjaw-dfhiokpfyjFQARIaUM_PllvkPSDw='
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
@@ -93,4 +92,41 @@ async def start_broadcast_task(event):
                 except FloodWaitError as e:
                     print(f"[FloodWait] На паузе {e.seconds} сек.")
                     skipped_count += 1
-                    await asyncio.sleep
+                    await asyncio.sleep(2)
+                    continue
+                except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
+                    skipped_count += 1
+                    await asyncio.sleep(1)
+                    continue
+                except Exception as e:
+                    print(f"[Ошибка] {e}")
+                    skipped_count += 1
+                    await asyncio.sleep(1)
+                    continue
+    except Exception as e:
+        print(f"[Критическая ошибка рассылки]: {e}")
+    finally:
+        is_broadcasting = False
+        await client.send_message(
+            'me',
+            f"✅ Рассылка завершена!\n\n"
+            f"• Успешно: {success_count}\n"
+            f"• Пропущено: {skipped_count}"
+        )
+
+
+# --- КОМАНДА .go ---
+@client.on(events.NewMessage(pattern=r'\.go'))
+async def run_broadcast(event):
+    global is_broadcasting
+    if is_broadcasting:
+        await event.reply("⚠️ Рассылка уже выполняется!")
+        return
+    
+    await event.reply("🚀 Начинаю рассылку по чатам...")
+    asyncio.create_task(start_broadcast_task(event))
+
+
+print("Бот запущен!")
+client.start()
+client.run_until_disconnected()
