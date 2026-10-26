@@ -1,16 +1,9 @@
-
-
-# update v5
-
-
-
-
 import asyncio
 import os
+import base64
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
-from telethon.sessions import StringSession
 from telethon.errors import (
     FloodWaitError,
     UserBannedInChannelError,
@@ -35,14 +28,30 @@ def run_web_server():
 Thread(target=run_web_server, daemon=True).start()
 
 
-# --- 2. НАСТРОЙКА БОТА С ЖЕСТКО ЗАПИСАННОЙ СЕССИЕЙ ---
+# --- 2. СОЗДАНИЕ ФАЙЛА СЕССИИ ИЗ ГОТОВОГО КОДА ---
 API_ID = 37787095
 API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
-# Готовая строка сессии с вашего телефона
-SESSION_STRING = '1BVtsOHQBu2AwdLPqqAZ2NM9EXv-BKSvLtg-i2lmT19IYMIPZBhIsGnzgej1n0nMXjCJUPuJDUQcxXQj17AdzFucjAitS06jkoGzQ0PXG3ZSfv011vPfAmmlp8QaDSdfFaDtatgphX5fGKAGEz5B2q7DxicvD5_AcWaU2Eml1NvIBOl-dBE0WSHJ0LpEUta9ibTqlUJpmXR6qTrSOModoYAwayqptGchz0zI5aTqOwSz-CY1F-tYW7u_JgWyhKksbq7_DypmEeIHD2wZaQjPLUHxCae-TixlBYVqENyxNys_wb2QuJ3P540JRMXBRvEE_7M5FLliWyMyywxEZT5fCOZzPw4c='
+# Превращаем вашу строку сессии обратно в стандартный файл Telethon
+# Используем готовую base64-строку вашей сессии без ошибок декодирования StringSession
+SESSION_B64 = "1BVtsOHQBu2AwdLPqqAZ2NM9EXv-BKSvLtg-i2lmT19IYMIPZBhIsGnzgej1n0nMXjCJUPuJDUQcxXQj17AdzFucjAitS06jkoGzQ0PXG3ZSfv011vPfAmmlp8QaDSdfFaDtatgphX5fGKAGEz5B2q7DxicvD5_AcWaU2Eml1NvIBOl-dBE0WSHJ0LpEUta9ibTqlUJpmXR6qTrSOModoYAwayqptGchz0zI5aTqOwSz-CY1F-tYW7u_JgWyhKksbq7_DypmEeIHD2wZaQjPLUHxCae-TixlBYVqENyxNys_wb2QuJ3P540JRMXBRvEE_7M5FLliWyMyywxEZT5fCOZzPw4c="
 
-client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+# Записываем файл сессии на диск перед запуском клиента
+# (Если StringSession капризничает, то файл .session работает всегда стабильно)
+import sqlite3
+# Создаем пустой файл session.session, если его нет
+if not os.path.exists('session.session'):
+    # Telethon использует SQLite для файлов сессий. 
+    # Вместо хрупких строк распакуем через StringSession один раз безопасно:
+    from telethon.sessions import StringSession
+    temp_client = TelegramClient(StringSession(SESSION_B64), API_ID, API_HASH)
+    # Сохраняем сессию в файл session.session
+    temp_client.session.save()
+    # Переименовываем или копируем в нужный файл
+    if os.path.exists('anon.session'):
+        os.replace('anon.session', 'session.session')
+
+client = TelegramClient('session', API_ID, API_HASH)
 
 
 # --- ТЕКСТЫ ---
