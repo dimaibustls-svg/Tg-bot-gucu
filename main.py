@@ -1,9 +1,9 @@
 import asyncio
 import os
-import base64
 from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from telethon.errors import (
     FloodWaitError,
     UserBannedInChannelError,
@@ -28,30 +28,14 @@ def run_web_server():
 Thread(target=run_web_server, daemon=True).start()
 
 
-# --- 2. СОЗДАНИЕ ФАЙЛА СЕССИИ ИЗ ГОТОВОГО КОДА ---
+# --- 2. ПОДКЛЮЧЕНИЕ К TELEGRAM ---
 API_ID = 37787095
 API_HASH = '8e8f268ad7ac6229969e7dcf75677b48'
 
-# Превращаем вашу строку сессии обратно в стандартный файл Telethon
-# Используем готовую base64-строку вашей сессии без ошибок декодирования StringSession
-SESSION_B64 = "1BVtsOHQBu2AwdLPqqAZ2NM9EXv-BKSvLtg-i2lmT19IYMIPZBhIsGnzgej1n0nMXjCJUPuJDUQcxXQj17AdzFucjAitS06jkoGzQ0PXG3ZSfv011vPfAmmlp8QaDSdfFaDtatgphX5fGKAGEz5B2q7DxicvD5_AcWaU2Eml1NvIBOl-dBE0WSHJ0LpEUta9ibTqlUJpmXR6qTrSOModoYAwayqptGchz0zI5aTqOwSz-CY1F-tYW7u_JgWyhKksbq7_DypmEeIHD2wZaQjPLUHxCae-TixlBYVqENyxNys_wb2QuJ3P540JRMXBRvEE_7M5FLliWyMyywxEZT5fCOZzPw4c="
+# Ваша новая рабочая строка сессии
+SESSION_STRING = '1BVtsOHQBuxsu6PoXmwGcF4twEvSvpRLmCQATzgWP5jfYw-naAFtOclSxgsfM3bLQ2-ahVuPDMYUZs1F3M9ABQJ0FJMNVsM7DgQgWsQNa6583zTE9Y7qBsXWjvQs7gxsuYnZOgsVZLAHkljKHRapNu6noDSwYeZkqL0KW68wAoH569nIHDCdllwF_exWbo5TLxtSD3y6UKFZOD-i3HrsCqc_naUUZzeeSUKlI5Bs-DOPE10HFxHzKzctY50uNiU3yr-n01blB9Ir9bvIX8WHRX3W_rL1qdm_DolEJ_k0BTm8N5BBC3iAR8ItM-O1zKngjaw-dfhiokpfyjFQARIaUM_PllvkPSDw='
 
-# Записываем файл сессии на диск перед запуском клиента
-# (Если StringSession капризничает, то файл .session работает всегда стабильно)
-import sqlite3
-# Создаем пустой файл session.session, если его нет
-if not os.path.exists('session.session'):
-    # Telethon использует SQLite для файлов сессий. 
-    # Вместо хрупких строк распакуем через StringSession один раз безопасно:
-    from telethon.sessions import StringSession
-    temp_client = TelegramClient(StringSession(SESSION_B64), API_ID, API_HASH)
-    # Сохраняем сессию в файл session.session
-    temp_client.session.save()
-    # Переименовываем или копируем в нужный файл
-    if os.path.exists('anon.session'):
-        os.replace('anon.session', 'session.session')
-
-client = TelegramClient('session', API_ID, API_HASH)
+client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 
 # --- ТЕКСТЫ ---
@@ -109,39 +93,4 @@ async def start_broadcast_task(event):
                 except FloodWaitError as e:
                     print(f"[FloodWait] На паузе {e.seconds} сек.")
                     skipped_count += 1
-                    await asyncio.sleep(2)
-                    continue
-                except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
-                    skipped_count += 1
-                    await asyncio.sleep(1)
-                    continue
-                except Exception as e:
-                    print(f"[Ошибка] {e}")
-                    skipped_count += 1
-                    await asyncio.sleep(1)
-                    continue
-    finally:
-        is_broadcasting = False
-        await client.send_message(
-            'me',
-            f"✅ Рассылка завершена!\n\n"
-            f"• Успешно: {success_count}\n"
-            f"• Пропущено: {skipped_count}"
-        )
-
-
-# --- КОМАНДА .go ---
-@client.on(events.NewMessage(pattern=r'\.go'))
-async def run_broadcast(event):
-    global is_broadcasting
-    if is_broadcasting:
-        await event.reply("⚠️ Рассылка уже выполняется!")
-        return
-    
-    await event.reply("🚀 Начинаю рассылку по чатам...")
-    asyncio.create_task(start_broadcast_task(event))
-
-
-print("Бот запущен!")
-client.start()
-client.run_until_disconnected()
+                    await asyncio.sleep
