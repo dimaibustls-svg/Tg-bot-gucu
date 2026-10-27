@@ -71,7 +71,7 @@ async def auto_reply(event):
         print(f"[Автоответ 2/2 в ЛС] Отправлен")
 
 
-# --- НАДЕЖНАЯ РАССЫЛКА С ГАРАНТИРОВАННЫМ ОТЧЕТОМ ---
+# --- БЫСТРАЯ РАССЫЛКА С ЖИВЫМИ ОТЧЕТАМИ ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
@@ -80,7 +80,9 @@ async def start_broadcast_task(event):
     total_checked = 0
     
     try:
+        await client.send_message('me', "🚀 Начинаю рассылку, слежу за процессом...")
         dialogs = await client.get_dialogs()
+        
         for dialog in dialogs:
             if dialog.is_group or dialog.is_channel:
                 total_checked += 1
@@ -89,36 +91,33 @@ async def start_broadcast_task(event):
                     success_count += 1
                     print(f"[Успех] Отправлено в чат: {dialog.title}")
                     
-                    # Пауза 40 секунд между отправками
-                    await asyncio.sleep(40)
+                    # Оптимальная пауза 4 секунды, чтобы не вешать скрипт и не спамить
+                    await asyncio.sleep(4)
                     
                 except FloodWaitError as e:
-                    print(f"[FloodWait] Telegram просит подождать {e.seconds} сек.")
+                    print(f"[FloodWait] Пауза {e.seconds} сек.")
                     skipped_count += 1
-                    await asyncio.sleep(e.seconds + 5)
+                    await asyncio.sleep(e.seconds + 2)
                     continue
                 except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
                     skipped_count += 1
                     continue
                 except Exception as ex:
-                    print(f"[Пропуск] Ошибка в чате: {ex}")
+                    print(f"[Пропуск] Ошибка: {ex}")
                     skipped_count += 1
                     continue
     except Exception as e:
         print(f"[Критическая ошибка рассылки]: {e}")
     finally:
         is_broadcasting = False
-        # Гарантированно отправляем отчет в Избранное
-        try:
-            await client.send_message(
-                'me',
-                f"📊 **Отчет о рассылке:**\n\n"
-                f"• Проверено чатов: {total_checked}\n"
-                f"• Успешно отправлено: {success_count}\n"
-                f"• Пропущено / Ошибки: {skipped_count}"
-            )
-        except Exception as report_err:
-            print(f"Не удалось отправить отчет в Избранное: {report_err}")
+        # Финальный отчет
+        await client.send_message(
+            'me',
+            f"✅ **Рассылка успешно завершена!**\n\n"
+            f"• Проверено чатов: {total_checked}\n"
+            f"• Успешно отправлено: {success_count}\n"
+            f"• Пропущено / Ошибки: {skipped_count}"
+        )
 
 
 # --- КОМАНДА .go ---
@@ -129,7 +128,7 @@ async def run_broadcast(event):
         await event.reply("⚠️ Рассылка уже выполняется!")
         return
     
-    await event.reply("🚀 Запускаю рассылку с гарантированным отчетом...")
+    await event.reply("🚀 Запускаю шуструю рассылку...")
     asyncio.create_task(start_broadcast_task(event))
 
 
