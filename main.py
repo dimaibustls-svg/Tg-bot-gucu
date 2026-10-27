@@ -50,7 +50,7 @@ user_reply_count = {}
 is_broadcasting = False
 
 
-# --- АВТООТВЕТЧИК ТОЛЬКО В ЛИЧНЫХ СООБЩЕНИЯХ ---
+# --- АВТООТВЕТЧИК В ЛИЧНЫХ СООБЩЕНИЯХ (задержка 60 секунд) ---
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def auto_reply(event):
     sender_id = event.sender_id
@@ -61,41 +61,43 @@ async def auto_reply(event):
 
     if count == 0:
         user_reply_count[sender_id] = 1
-        await asyncio.sleep(60)
+        await asyncio.sleep(60) # Задержка 60 сек перед первым ответом
         await event.respond(FIRST_REPLY)
         print(f"[Автоответ 1/2 в ЛС] Отправлен")
 
     elif count == 1:
         user_reply_count[sender_id] = 2
-        await asyncio.sleep(60)
+        await asyncio.sleep(60) # Задержка 60 сек перед вторым ответом
         await event.respond(SECOND_REPLY)
         print(f"[Автоответ 2/2 в ЛС] Отправлен")
 
 
-# --- БЕЗОПАСНАЯ РАССЫЛКА С РАНДОМНОЙ ПАУЗОЙ ---
+# --- РАССЫЛКА С ПАУЗОЙ 40 СЕКУНД ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
     success_count = 0
     skipped_count = 0
+    total_checked = 0
     
     try:
         dialogs = await client.get_dialogs()
         for dialog in dialogs:
-            if dialog.is_group or dialog.is_channel or dialog.is_chat:
+            # Проверяем, что это группа или супергруппа, куда реально можно писать
+            if dialog.is_group or dialog.is_channel:
+                total_checked += 1
                 try:
                     await client.send_message(dialog.id, BROADCAST_TEXT)
                     success_count += 1
                     print(f"[Успех] Отправлено в чат: {dialog.title}")
                     
-                    # Рандомная пауза от 5 до 10 секунд между сообщениями, чтобы не ловить спам-блок
-                    delay = random.randint(5, 10)
-                    await asyncio.sleep(delay)
+                    # Жесткая пауза 40 секунд между отправками
+                    print(f"[Пауза] Ждем 40 секунд перед следующим чатом...")
+                    await asyncio.sleep(40)
                     
                 except FloodWaitError as e:
                     print(f"[FloodWait] Telegram просит подождать {e.seconds} сек.")
                     skipped_count += 1
-                    # Если словили лимит, делаем паузу плюс небольшой запас
                     await asyncio.sleep(e.seconds + 5)
                     continue
                 except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
@@ -111,9 +113,10 @@ async def start_broadcast_task(event):
         is_broadcasting = False
         await client.send_message(
             'me',
-            f"🛡 **Безопасная рассылка завершена!**\n\n"
+            f"📊 **Отчет о рассылке:**\n\n"
+            f"• Проверено подходящих чатов: {total_checked}\n"
             f"• Успешно отправлено: {success_count}\n"
-            f"• Пропущено / Заблокировано: {skipped_count}"
+            f"• Пропущено (нет прав / ошибки): {skipped_count}"
         )
 
 
@@ -125,7 +128,7 @@ async def run_broadcast(event):
         await event.reply("⚠️ Рассылка уже выполняется!")
         return
     
-    await event.reply("🛡 Запускаю безопасную рассылку с защитой от спам-блока...")
+    await event.reply("🚀 Запускаю рассылку (пауза 40 сек между чатами)...")
     asyncio.create_task(start_broadcast_task(event))
 
 
