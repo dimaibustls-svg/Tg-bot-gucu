@@ -1,6 +1,5 @@
 import asyncio
 import os
-import random
 from aiohttp import web
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -61,18 +60,18 @@ async def auto_reply(event):
 
     if count == 0:
         user_reply_count[sender_id] = 1
-        await asyncio.sleep(60) # Задержка 60 сек перед первым ответом
+        await asyncio.sleep(60)
         await event.respond(FIRST_REPLY)
         print(f"[Автоответ 1/2 в ЛС] Отправлен")
 
     elif count == 1:
         user_reply_count[sender_id] = 2
-        await asyncio.sleep(60) # Задержка 60 сек перед вторым ответом
+        await asyncio.sleep(60)
         await event.respond(SECOND_REPLY)
         print(f"[Автоответ 2/2 в ЛС] Отправлен")
 
 
-# --- РАССЫЛКА С ПАУЗОЙ 40 СЕКУНД ---
+# --- НАДЕЖНАЯ РАССЫЛКА С ГАРАНТИРОВАННЫМ ОТЧЕТОМ ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
@@ -83,7 +82,6 @@ async def start_broadcast_task(event):
     try:
         dialogs = await client.get_dialogs()
         for dialog in dialogs:
-            # Проверяем, что это группа или супергруппа, куда реально можно писать
             if dialog.is_group or dialog.is_channel:
                 total_checked += 1
                 try:
@@ -91,8 +89,7 @@ async def start_broadcast_task(event):
                     success_count += 1
                     print(f"[Успех] Отправлено в чат: {dialog.title}")
                     
-                    # Жесткая пауза 40 секунд между отправками
-                    print(f"[Пауза] Ждем 40 секунд перед следующим чатом...")
+                    # Пауза 40 секунд между отправками
                     await asyncio.sleep(40)
                     
                 except FloodWaitError as e:
@@ -104,20 +101,24 @@ async def start_broadcast_task(event):
                     skipped_count += 1
                     continue
                 except Exception as ex:
-                    print(f"[Пропуск] Ошибка в чате {dialog.title}: {ex}")
+                    print(f"[Пропуск] Ошибка в чате: {ex}")
                     skipped_count += 1
                     continue
     except Exception as e:
         print(f"[Критическая ошибка рассылки]: {e}")
     finally:
         is_broadcasting = False
-        await client.send_message(
-            'me',
-            f"📊 **Отчет о рассылке:**\n\n"
-            f"• Проверено подходящих чатов: {total_checked}\n"
-            f"• Успешно отправлено: {success_count}\n"
-            f"• Пропущено (нет прав / ошибки): {skipped_count}"
-        )
+        # Гарантированно отправляем отчет в Избранное
+        try:
+            await client.send_message(
+                'me',
+                f"📊 **Отчет о рассылке:**\n\n"
+                f"• Проверено чатов: {total_checked}\n"
+                f"• Успешно отправлено: {success_count}\n"
+                f"• Пропущено / Ошибки: {skipped_count}"
+            )
+        except Exception as report_err:
+            print(f"Не удалось отправить отчет в Избранное: {report_err}")
 
 
 # --- КОМАНДА .go ---
@@ -128,7 +129,7 @@ async def run_broadcast(event):
         await event.reply("⚠️ Рассылка уже выполняется!")
         return
     
-    await event.reply("🚀 Запускаю рассылку (пауза 40 сек между чатами)...")
+    await event.reply("🚀 Запускаю рассылку с гарантированным отчетом...")
     asyncio.create_task(start_broadcast_task(event))
 
 
