@@ -35,12 +35,13 @@ client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 
 # --- ТЕКСТЫ ---
-BROADCAST_TEXT = "Хочешь провести хорошо"
+BROADCAST_TEXT = "хочешь провести хорошо время в лс)"
 
 FIRST_REPLY = (
-    "Привет если ты по поводу того что я\n"
-    "и менеджера если хочешь узнать подроб\n"
-    "82275 и скажи что хочешь узнать подр"
+    "Привет если ты по поводу того что я написала в чате "
+    "то работаю через агентство и менджера если хочешь узнать подробности "
+    "или прайс напиши менджеру мой персональный код 82275 и скажи "
+    "что хочешь узнать подробности или оформить заказ менджер:@manager_sweetglamour"
 )
 
 SECOND_REPLY = "Извини я щас занята если"
@@ -91,7 +92,7 @@ async def start_broadcast_task(event):
                     success_count += 1
                     print(f"[Успех] Отправлено в чат: {dialog.title}")
                     
-                    # Оптимальная пауза 4 секунды, чтобы не вешать скрипт и не спамить
+                    # Оптимальная пауза 4 секунды
                     await asyncio.sleep(4)
                     
                 except FloodWaitError as e:
@@ -128,7 +129,7 @@ async def run_broadcast(event):
         await event.reply("⚠️ Рассылка уже выполняется!")
         return
     
-    await event.reply("🚀 Запускаю шуструю рассылку...")
+    await event.reply("🚀 Запускаю шуструю рассылку с новыми текстами...")
     asyncio.create_task(start_broadcast_task(event))
 
 
