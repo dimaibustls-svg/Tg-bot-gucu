@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 from aiohttp import web
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
@@ -34,8 +35,13 @@ SESSION_STRING = '1BVtsOHQBuxsu6PoXmwGcF4twEvSvpRLmCQATzgWP5jfYw-naAFtOclSxgsfM3
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 
-# --- ТЕКСТЫ ---
-BROADCAST_TEXT = "хочешь провести хорошо время в лс)"
+# --- ТЕКСТЫ И ВАРИАНТЫ ДЛЯ РАНДОМИЗАЦИИ ---
+BROADCAST_VARIANTS = [
+    "хочешь провести хорошо время в лс)",
+    "привет, хочешь хорошо провести время? пиши в лс)",
+    "ищешь с кем приятно провести время? жду в лс)",
+    "хочешь отлично провести время в личке?)"
+]
 
 FIRST_REPLY = (
     "Привет если ты по поводу того что я написала в чате "
@@ -72,7 +78,7 @@ async def auto_reply(event):
         print(f"[Автоответ 2/2 в ЛС] Отправлен")
 
 
-# --- БЫСТРАЯ РАССЫЛКА С ЖИВЫМИ ОТЧЕТАМИ ---
+# --- УМНАЯ РАССЫЛКА ПО СЛУЧАЙНЫМ 100 ЧАТАМ ---
 async def start_broadcast_task(event):
     global is_broadcasting
     is_broadcasting = True
@@ -81,32 +87,50 @@ async def start_broadcast_task(event):
     total_checked = 0
     
     try:
-        await client.send_message('me', "🚀 Начинаю рассылку, слежу за процессом...")
+        await client.send_message('me', "🚀 Начинаю подготовку умной рассылки...")
         dialogs = await client.get_dialogs()
         
+        # Отбираем только подходящие чаты и группы
+        valid_dialogs = []
         for dialog in dialogs:
             if dialog.is_group or dialog.is_channel:
-                total_checked += 1
-                try:
-                    await client.send_message(dialog.id, BROADCAST_TEXT)
-                    success_count += 1
-                    print(f"[Успех] Отправлено в чат: {dialog.title}")
-                    
-                    # Оптимальная пауза 4 секунды
-                    await asyncio.sleep(4)
-                    
-                except FloodWaitError as e:
-                    print(f"[FloodWait] Пауза {e.seconds} сек.")
-                    skipped_count += 1
-                    await asyncio.sleep(e.seconds + 2)
-                    continue
-                except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
-                    skipped_count += 1
-                    continue
-                except Exception as ex:
-                    print(f"[Пропуск] Ошибка: {ex}")
-                    skipped_count += 1
-                    continue
+                valid_dialogs.append(dialog)
+                
+        total_found = len(valid_dialogs)
+        await client.send_message('me', f"📁 Найдено всего чатов: {total_found}. Выбираю случайную сотню...")
+        
+        # Берем случайные 100 чатов (или меньше, если их всего в базе меньше 100)
+        target_count = min(100, total_found)
+        selected_dialogs = random.sample(valid_dialogs, target_count)
+        
+        await client.send_message('me', f"🎯 Отобрано для текущего запуска: {target_count} чатов. Поехали!")
+        
+        for dialog in selected_dialogs:
+            total_checked += 1
+            try:
+                # Рандомный выбор текста для каждого чата
+                current_text = random.choice(BROADCAST_VARIANTS)
+                
+                await client.send_message(dialog.id, current_text)
+                success_count += 1
+                print(f"[Успех] Отправлено в чат: {dialog.title}")
+                
+                # Плавающая пауза от 7 до 15 секунд
+                sleep_time = random.uniform(7.0, 15.0)
+                await asyncio.sleep(sleep_time)
+                
+            except FloodWaitError as e:
+                print(f"[FloodWait] Пауза {e.seconds} сек.")
+                skipped_count += 1
+                await asyncio.sleep(e.seconds + 5)
+                continue
+            except (UserBannedInChannelError, ChatWriteForbiddenError, ChannelPrivateError):
+                skipped_count += 1
+                continue
+            except Exception as ex:
+                print(f"[Пропуск] Ошибка: {ex}")
+                skipped_count += 1
+                continue
     except Exception as e:
         print(f"[Критическая ошибка рассылки]: {e}")
     finally:
@@ -114,8 +138,8 @@ async def start_broadcast_task(event):
         # Финальный отчет
         await client.send_message(
             'me',
-            f"✅ **Рассылка успешно завершена!**\n\n"
-            f"• Проверено чатов: {total_checked}\n"
+            f"✅ **Умная рассылка по случайным чатам завершена!**\n\n"
+            f"• Обработано чатов: {total_checked}\n"
             f"• Успешно отправлено: {success_count}\n"
             f"• Пропущено / Ошибки: {skipped_count}"
         )
@@ -129,7 +153,7 @@ async def run_broadcast(event):
         await event.reply("⚠️ Рассылка уже выполняется!")
         return
     
-    await event.reply("🚀 Запускаю шуструю рассылку с новыми текстами...")
+    await event.reply("🚀 Запускаю рандомную рассылку по 100 чатам...")
     asyncio.create_task(start_broadcast_task(event))
 
 
